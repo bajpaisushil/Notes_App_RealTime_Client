@@ -1,16 +1,17 @@
-import React, { useState, useEffect, useContext, useCallback } from 'react';
-import axios from 'axios';
-import { PlusCircle, Search, Filter } from 'lucide-react';
-import AuthContext from '../context/AuthContext';
-import ThemeContext from '../context/ThemeContext';
-import NoteCard from '../components/NoteCard';
-import NoteForm from '../components/NoteForm';
+import React, { useState, useEffect, useContext, useCallback } from "react";
+import axios from "axios";
+import { PlusCircle, Search, Filter } from "lucide-react";
+import AuthContext from "../context/AuthContext";
+import ThemeContext from "../context/ThemeContext";
+import NoteCard from "../components/NoteCard";
+import NoteForm from "../components/NoteForm";
 
 interface Note {
   _id: string;
   title: string;
   content: string;
   category: string;
+  publicity?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -21,18 +22,18 @@ interface DashboardProps {
 
 const Dashboard: React.FC<DashboardProps> = ({ socket }) => {
   const [notes, setNotes] = useState<Note[]>([]);
-  const [categories, setCategories] = useState<string[]>(['General']);
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [categories, setCategories] = useState<string[]>(["General"]);
+  const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
-  
+
   const { user } = useContext(AuthContext);
   const { darkMode } = useContext(ThemeContext);
-  
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+  const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
   // Debounce search
   const debounce = (func: Function, delay: number) => {
@@ -51,23 +52,26 @@ const Dashboard: React.FC<DashboardProps> = ({ socket }) => {
   );
 
   // Fetch notes
-  const fetchNotes = async (query = searchQuery, category = selectedCategory) => {
+  const fetchNotes = async (
+    query = searchQuery,
+    category = selectedCategory
+  ) => {
     try {
       setIsLoading(true);
       let url = `${apiUrl}/api/notes`;
-      
-      if (query || category !== 'All') {
+
+      if (query || category !== "All") {
         url = `${apiUrl}/api/notes/search?query=${query}`;
-        if (category !== 'All') {
+        if (category !== "All") {
           url += `&category=${category}`;
         }
       }
-      
+
       const response = await axios.get(url);
       setNotes(response.data);
-      setError('');
+      setError("");
     } catch (err: any) {
-      setError('Failed to fetch notes');
+      setError("Failed to fetch notes");
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -78,9 +82,12 @@ const Dashboard: React.FC<DashboardProps> = ({ socket }) => {
   const fetchCategories = async () => {
     try {
       const response = await axios.get(`${apiUrl}/api/notes/categories`);
-      setCategories(['General', ...response.data.filter((cat: string) => cat !== 'General')]);
+      setCategories([
+        "General",
+        ...response.data.filter((cat: string) => cat !== "General"),
+      ]);
     } catch (err) {
-      console.error('Failed to fetch categories', err);
+      console.error("Failed to fetch categories", err);
     }
   };
 
@@ -88,35 +95,35 @@ const Dashboard: React.FC<DashboardProps> = ({ socket }) => {
   useEffect(() => {
     fetchNotes();
     fetchCategories();
-    
+
     // Join socket room
     if (user) {
-      socket.emit('join', user._id);
+      socket.emit("join", user._id);
     }
-    
+
     // Socket event listeners
-    socket.on('noteCreated', (newNote: Note) => {
-      setNotes(prevNotes => [newNote, ...prevNotes]);
+    socket.on("noteCreated", (newNote: Note) => {
+      setNotes((prevNotes) => [newNote, ...prevNotes]);
     });
-    
-    socket.on('noteUpdated', (updatedNote: Note) => {
-      setNotes(prevNotes => 
-        prevNotes.map(note => 
+
+    socket.on("noteUpdated", (updatedNote: Note) => {
+      setNotes((prevNotes) =>
+        prevNotes.map((note) =>
           note._id === updatedNote._id ? updatedNote : note
         )
       );
     });
-    
-    socket.on('noteDeleted', (deletedNoteId: string) => {
-      setNotes(prevNotes => 
-        prevNotes.filter(note => note._id !== deletedNoteId)
+
+    socket.on("noteDeleted", (deletedNoteId: string) => {
+      setNotes((prevNotes) =>
+        prevNotes.filter((note) => note._id !== deletedNoteId)
       );
     });
-    
+
     return () => {
-      socket.off('noteCreated');
-      socket.off('noteUpdated');
-      socket.off('noteDeleted');
+      socket.off("noteCreated");
+      socket.off("noteUpdated");
+      socket.off("noteDeleted");
     };
   }, [user, socket]);
 
@@ -131,37 +138,45 @@ const Dashboard: React.FC<DashboardProps> = ({ socket }) => {
   }, [selectedCategory]);
 
   // Create note
-  const handleCreateNote = async (noteData: { title: string; content: string; category: string }) => {
+  const handleCreateNote = async (noteData: {
+    title: string;
+    content: string;
+    category: string;
+  }) => {
     try {
       await axios.post(`${apiUrl}/api/notes`, noteData);
       setShowForm(false);
       fetchCategories();
     } catch (err) {
-      console.error('Failed to create note', err);
+      console.error("Failed to create note", err);
     }
   };
 
   // Update note
-  const handleUpdateNote = async (noteData: { title: string; content: string; category: string }) => {
+  const handleUpdateNote = async (noteData: {
+    title: string;
+    content: string;
+    category: string;
+  }) => {
     if (!editingNote) return;
-    
+
     try {
       await axios.put(`${apiUrl}/api/notes/${editingNote._id}`, noteData);
       setEditingNote(null);
       fetchCategories();
     } catch (err) {
-      console.error('Failed to update note', err);
+      console.error("Failed to update note", err);
     }
   };
 
   // Delete note
   const handleDeleteNote = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this note?')) return;
-    
+    if (!window.confirm("Are you sure you want to delete this note?")) return;
+
     try {
       await axios.delete(`${apiUrl}/api/notes/${id}`);
     } catch (err) {
-      console.error('Failed to delete note', err);
+      console.error("Failed to delete note", err);
     }
   };
 
@@ -180,7 +195,7 @@ const Dashboard: React.FC<DashboardProps> = ({ socket }) => {
           New Note
         </button>
       </div>
-      
+
       {/* Search and Filter */}
       <div className="mb-6 flex flex-col md:flex-row gap-4">
         <div className="relative flex-grow">
@@ -193,13 +208,13 @@ const Dashboard: React.FC<DashboardProps> = ({ socket }) => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className={`pl-10 pr-4 py-2 w-full rounded-md border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              darkMode 
-                ? 'bg-gray-700 border-gray-600 text-white' 
-                : 'bg-white border-gray-300 text-gray-900'
+              darkMode
+                ? "bg-gray-700 border-gray-600 text-white"
+                : "bg-white border-gray-300 text-gray-900"
             }`}
           />
         </div>
-        
+
         <div className="relative min-w-[200px]">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Filter size={18} className="text-gray-400" />
@@ -208,9 +223,9 @@ const Dashboard: React.FC<DashboardProps> = ({ socket }) => {
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
             className={`pl-10 pr-4 py-2 w-full rounded-md border appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              darkMode 
-                ? 'bg-gray-700 border-gray-600 text-white' 
-                : 'bg-white border-gray-300 text-gray-900'
+              darkMode
+                ? "bg-gray-700 border-gray-600 text-white"
+                : "bg-white border-gray-300 text-gray-900"
             }`}
           >
             <option value="All">All Categories</option>
@@ -221,17 +236,34 @@ const Dashboard: React.FC<DashboardProps> = ({ socket }) => {
             ))}
           </select>
           <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-            <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            <svg
+              className="h-5 w-5 text-gray-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
             </svg>
           </div>
         </div>
       </div>
-      
+
       {/* Note Form */}
       {(showForm || editingNote) && (
         <NoteForm
-          initialData={editingNote || undefined}
+          initialData={
+            editingNote
+              ? {
+                  ...editingNote,
+                  publicity: editingNote.publicity || "private",
+                }
+              : undefined
+          }
           onSubmit={editingNote ? handleUpdateNote : handleCreateNote}
           onCancel={() => {
             setShowForm(false);
@@ -240,14 +272,14 @@ const Dashboard: React.FC<DashboardProps> = ({ socket }) => {
           categories={categories}
         />
       )}
-      
+
       {/* Error Message */}
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
           {error}
         </div>
       )}
-      
+
       {/* Notes Grid */}
       {isLoading ? (
         <div className="flex justify-center items-center py-12">
@@ -265,11 +297,15 @@ const Dashboard: React.FC<DashboardProps> = ({ socket }) => {
           ))}
         </div>
       ) : (
-        <div className={`text-center py-12 ${darkMode ? 'bg-gray-800' : 'bg-gray-50'} rounded-lg`}>
+        <div
+          className={`text-center py-12 ${
+            darkMode ? "bg-gray-800" : "bg-gray-50"
+          } rounded-lg`}
+        >
           <p className="text-xl font-medium mb-2">No notes found</p>
-          <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-            {searchQuery || selectedCategory !== 'All'
-              ? 'Try changing your search or filter'
+          <p className={`${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+            {searchQuery || selectedCategory !== "All"
+              ? "Try changing your search or filter"
               : 'Create your first note by clicking the "New Note" button'}
           </p>
         </div>

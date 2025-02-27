@@ -7,6 +7,7 @@ interface Note {
   title: string;
   content: string;
   category: string;
+  publicity?: string;
   createdAt: string;
   updatedAt: string;
 }
